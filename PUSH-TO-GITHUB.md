@@ -40,6 +40,23 @@ git push -u origin main
 
 (Git may ask you to sign in in the browser.)
 
+If push says **Permission denied to vyshnavsvarma-a11y** (or another account), Windows is using the wrong saved login:
+
+```powershell
+cmdkey /list | findstr git
+# Remove the github.com entry, then push again and sign in as vyshnavsvarma2000
+git credential reject
+# paste: protocol=https`nhost=github.com`n
+# (blank line), then git push -u github main
+```
+
+Or use GitHub CLI after `gh auth login` as **vyshnavsvarma2000**:
+
+```powershell
+git remote set-url github https://github.com/vyshnavsvarma2000/vss-jersey-board.git
+git push -u github main
+```
+
 ## Step 3 — Free live URL (Render)
 
 1. https://render.com → sign up → **New Web Service** → connect **vss-jersey-board**

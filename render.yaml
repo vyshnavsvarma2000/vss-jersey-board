@@ -1,10 +1,9 @@
-# Free Render web service. Standalone repo: remove rootDir line.
+# Free Render web service (repo root = app root).
 services:
   - type: web
     name: vss-jersey-board
     runtime: node
     plan: free
-    rootDir: team-jersey-board
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health
