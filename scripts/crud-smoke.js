@@ -40,6 +40,8 @@ async function main() {
   });
   const entry = created.entries.find((e) => e.display_name === player);
   if (!entry) throw new Error("CREATE failed: entry missing from response");
+  const manageToken = created.manageToken;
+  if (!manageToken) throw new Error("CREATE failed: manageToken missing");
   console.log("CREATE:", entry.id, entry.jersey_number);
 
   const updated = await req("PUT", `/api/rooms/${room}/entries/${entry.id}`, {
@@ -48,6 +50,7 @@ async function main() {
     jerseySize: "XL",
     teamPreference: "Smoke Test Updated",
     note: "update",
+    manageToken,
   });
   const afterUpdate = updated.entries.find((e) => e.id === entry.id);
   if (afterUpdate.jersey_number !== 43) throw new Error("UPDATE failed");
@@ -61,6 +64,7 @@ async function main() {
 
   const deleted = await req("DELETE", `/api/rooms/${room}/entries/${entry.id}`, {
     displayName: player,
+    manageToken: updated.manageToken || manageToken,
   });
   if (deleted.entries.some((e) => e.id === entry.id)) throw new Error("DELETE failed");
   console.log("DELETE: ok, remaining", deleted.entries.length);

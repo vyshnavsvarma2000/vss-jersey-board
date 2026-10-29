@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
@@ -128,6 +129,12 @@ function rosterProgress(roster, entries) {
   };
 }
 
+function sanitizeEntry(entry) {
+  if (!entry) return entry;
+  const { manage_token, ...publicFields } = entry;
+  return { ...publicFields, requiresManageToken: Boolean(manage_token) };
+}
+
 function boardPayload(store, roomCode) {
   const room = store.rooms[roomCode];
   const entries = listEntries(store, roomCode);
@@ -135,11 +142,27 @@ function boardPayload(store, roomCode) {
   const progress = rosterProgress(rosterDoc, entries);
   return {
     room,
-    entries,
+    entries: entries.map(sanitizeEntry),
     teamSuggestions: aggregateTeamSuggestions(entries),
     takenNumbers: entries.map((e) => e.jersey_number),
     ...progress,
   };
+}
+
+function newManageToken() {
+  return crypto.randomBytes(16).toString("hex");
+}
+
+function entryAuthorized(entry, displayName, manageToken) {
+  if (!entry) return false;
+  if (entry.manage_token) {
+    return (
+      typeof manageToken === "string" &&
+      manageToken.length > 0 &&
+      manageToken === entry.manage_token
+    );
+  }
+  return nameKey(entry.display_name) === nameKey(displayName);
 }
 
 function ensurePresetRooms() {
@@ -304,25 +327,32 @@ app.post("/api/rooms/:code/entries", (req, res) => {
     return res.status(409).json({ error: "You already have an entry. Use Edit to change it." });
   }
 
+  const entryId = nextEntryId(store);
+  const manageToken = newManageToken();
   store.entries.push({
-    id: nextEntryId(store),
+    id: entryId,
     room_code: code,
     display_name: displayName,
     jersey_number: jerseyNumber,
     jersey_size: jerseySize,
     team_preference: teamPreference,
     note,
+    manage_token: manageToken,
     created_at: new Date().toISOString(),
   });
   writeStore(store);
 
-  res.status(201).json(boardPayload(store, code));
+  res.status(201).json({
+    ...boardPayload(store, code),
+    entryId,
+    manageToken,
+  });
 });
 
-function findEntryForUser(store, code, id, displayName) {
+function findEntryForUser(store, code, id, displayName, manageToken) {
   const entry = store.entries.find((e) => e.id === id && e.room_code === code);
   if (!entry) return null;
-  if (nameKey(entry.display_name) !== nameKey(displayName)) return null;
+  if (!entryAuthorized(entry, displayName, manageToken)) return null;
   return entry;
 }
 
@@ -363,9 +393,12 @@ app.put("/api/rooms/:code/entries/:id", (req, res) => {
     return res.status(400).json({ error: "Team name preference is required." });
   }
 
-  const entry = findEntryForUser(store, code, id, displayName);
+  const manageToken = String(req.body?.manageToken || "").trim();
+  const entry = findEntryForUser(store, code, id, displayName, manageToken);
   if (!entry) {
-    return res.status(404).json({ error: "Entry not found or name did not match." });
+    return res.status(403).json({
+      error: "Not allowed to update this entry. Use the same phone/browser where you first submitted.",
+    });
   }
 
   const roomEntries = listEntries(store, code);
@@ -378,27 +411,39 @@ app.put("/api/rooms/:code/entries/:id", (req, res) => {
   entry.team_preference = teamPreference;
   entry.note = note;
   entry.updated_at = new Date().toISOString();
+  if (!entry.manage_token) {
+    entry.manage_token = newManageToken();
+  }
   writeStore(store);
 
-  res.json(boardPayload(store, code));
+  res.json({
+    ...boardPayload(store, code),
+    entryId: entry.id,
+    manageToken: entry.manage_token,
+  });
 });
 
 app.delete("/api/rooms/:code/entries/:id", (req, res) => {
   const code = normalizeRoomCode(req.params.code);
   const id = parseInt(req.params.id, 10);
   const displayName = normalizeName(req.body?.displayName);
+  const manageToken = String(req.body?.manageToken || "").trim();
 
   if (!Number.isInteger(id) || !displayName) {
     return res.status(400).json({ error: "Entry id and your name are required to remove." });
   }
 
   const store = readStore();
-  const idx = store.entries.findIndex(
-    (e) => e.id === id && e.room_code === code && nameKey(e.display_name) === nameKey(displayName)
-  );
+  const entry = store.entries.find((e) => e.id === id && e.room_code === code);
+  if (!entry || !entryAuthorized(entry, displayName, manageToken)) {
+    return res.status(403).json({
+      error: "Not allowed to delete this entry. Use the same phone/browser where you first submitted.",
+    });
+  }
 
+  const idx = store.entries.findIndex((e) => e.id === id && e.room_code === code);
   if (idx === -1) {
-    return res.status(404).json({ error: "Entry not found or name did not match." });
+    return res.status(404).json({ error: "Entry not found." });
   }
 
   store.entries.splice(idx, 1);

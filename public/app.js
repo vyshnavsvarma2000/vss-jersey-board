@@ -44,6 +44,25 @@ const POLL_MS = 4000;
 
 const savedNameKey = "jerseyBoard.displayName";
 
+function manageTokenKey(roomCode, entryId) {
+  return `jerseyBoard.manageToken.${roomCode}.${entryId}`;
+}
+
+function saveManageToken(roomCode, entryId, token) {
+  if (!roomCode || !entryId || !token) return;
+  localStorage.setItem(manageTokenKey(roomCode, entryId), token);
+}
+
+function getManageToken(roomCode, entryId) {
+  if (!roomCode || !entryId) return "";
+  return localStorage.getItem(manageTokenKey(roomCode, entryId)) || "";
+}
+
+function clearManageToken(roomCode, entryId) {
+  if (!roomCode || !entryId) return;
+  localStorage.removeItem(manageTokenKey(roomCode, entryId));
+}
+
 function getRoomFromUrl() {
   const params = new URLSearchParams(window.location.search);
   return (params.get("room") || "").trim().toUpperCase();
@@ -84,16 +103,34 @@ function syncPlayerSelectFromSaved(name) {
   if (opt) playerSelect.value = name;
 }
 
-async function api(path, options = {}) {
-  const res = await fetch(path, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || `Request failed (${res.status})`);
+async function api(path, options = {}, { retries = 0 } = {}) {
+  const maxRetries = retries || 0;
+  let lastErr;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(path, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const retryable = res.status === 502 || res.status === 503 || res.status === 504;
+        if (retryable && attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+          continue;
+        }
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+      return data;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+        continue;
+      }
+    }
   }
-  return data;
+  throw lastErr || new Error("Request failed");
 }
 
 function isEntryFormFocused() {
@@ -117,9 +154,13 @@ function currentIdentityName() {
 }
 
 function canManageEntry(entry) {
+  if (!activeRoom || !entry?.id) return false;
+  if (getManageToken(activeRoom, entry.id)) return true;
+  if (entry.requiresManageToken) return false;
   const identity = currentIdentityName();
-  if (!identity) return false;
-  return nameKeyClient(entry.display_name) === nameKeyClient(identity);
+  return Boolean(
+    identity && nameKeyClient(entry.display_name) === nameKeyClient(identity)
+  );
 }
 
 function syncFormFromBoard(data) {
@@ -197,13 +238,21 @@ function loadEntryForSelectedName(entries) {
     return;
   }
   const mine = entryByName(entries, name);
-  if (mine) loadEntryIntoForm(mine);
-  else {
-    jerseyNumberInput.value = "";
-    jerseySizeInput.value = "";
-    teamPreferenceInput.value = "";
-    noteInput.value = "";
-    setEditMode(null);
+  if (mine && canManageEntry(mine)) {
+    loadEntryIntoForm(mine);
+    return;
+  }
+  jerseyNumberInput.value = "";
+  jerseySizeInput.value = "";
+  teamPreferenceInput.value = "";
+  noteInput.value = "";
+  setEditMode(null);
+  if (mine) {
+    setStatus(
+      formStatus,
+      `${mine.display_name} already submitted. Only their device can edit that pick.`,
+      "err"
+    );
   }
 }
 
@@ -338,18 +387,42 @@ function escapeHtml(str) {
     .replaceAll('"', "&quot;");
 }
 
-async function loadRoom(code, { silent = false } = {}) {
-  if (!silent) setStatus(setupStatus, "Loading board…");
+function showLoadingBoard(message = "Opening board…") {
+  setupPanel.classList.add("hidden");
+  boardPanel.classList.remove("hidden");
+  boardPanel.classList.add("loading");
+  setStatus(formStatus, message, "");
+}
+
+function hideLoadingBoard() {
+  boardPanel.classList.remove("loading");
+}
+
+async function loadRoom(code, { silent = false, retries = 0 } = {}) {
+  if (!silent) {
+    showLoadingBoard(
+      retries > 0 ? "Server is waking up (free hosting)…" : "Opening board…"
+    );
+  }
   try {
-    const data = await api(`/api/rooms/${encodeURIComponent(code)}`);
+    const data = await api(
+      `/api/rooms/${encodeURIComponent(code)}`,
+      {},
+      { retries: retries || 0 }
+    );
     activeRoom = data.room.code;
     setRoomInUrl(activeRoom);
     setupPanel.classList.add("hidden");
     boardPanel.classList.remove("hidden");
+    hideLoadingBoard();
     renderBoard(data);
     setStatus(setupStatus, "");
+    setStatus(formStatus, "");
     startPolling();
   } catch (err) {
+    hideLoadingBoard();
+    setupPanel.classList.remove("hidden");
+    boardPanel.classList.add("hidden");
     if (!silent) setStatus(setupStatus, err.message, "err");
     throw err;
   }
@@ -424,7 +497,7 @@ async function submitEntry(ev) {
   if (editingEntryId) {
     const existing = lastBoardData?.entries?.find((x) => x.id === editingEntryId);
     if (existing && !canManageEntry(existing)) {
-      setStatus(formStatus, "You can only update your own submission.", "err");
+      setStatus(formStatus, "You can only update your own submission on this device.", "err");
       clearEntryForm({ keepName: true });
       return;
     }
@@ -436,6 +509,10 @@ async function submitEntry(ev) {
   setStatus(formStatus, isUpdate ? "Updating…" : "Saving…");
   try {
     const payload = { displayName, jerseyNumber, jerseySize, teamPreference, note };
+    if (isUpdate) {
+      const token = getManageToken(activeRoom, editingEntryId);
+      if (token) payload.manageToken = token;
+    }
     const data = editingEntryId
       ? await api(`/api/rooms/${encodeURIComponent(activeRoom)}/entries/${editingEntryId}`, {
           method: "PUT",
@@ -445,6 +522,9 @@ async function submitEntry(ev) {
           method: "POST",
           body: JSON.stringify(payload),
         });
+    if (data.manageToken && data.entryId) {
+      saveManageToken(activeRoom, data.entryId, data.manageToken);
+    }
     formDirty = false;
     editingEntryId = null;
     renderBoard(data);
@@ -477,8 +557,17 @@ async function removeEntry(id, rosterName) {
   try {
     const data = await api(
       `/api/rooms/${encodeURIComponent(activeRoom)}/entries/${id}`,
-      { method: "DELETE", body: JSON.stringify({ displayName: displayName.trim() }) }
+      {
+        method: "DELETE",
+        body: JSON.stringify({
+          displayName: displayName.trim(),
+          ...(getManageToken(activeRoom, id)
+            ? { manageToken: getManageToken(activeRoom, id) }
+            : {}),
+        }),
+      }
     );
+    clearManageToken(activeRoom, id);
     if (editingEntryId === id) clearEntryForm({ keepName: false });
     renderBoard(data);
     setStatus(formStatus, "Deleted.", "ok");
@@ -587,8 +676,13 @@ if (savedName) {
 const urlRoom = getRoomFromUrl();
 if (urlRoom) {
   joinRoomCode.value = urlRoom;
-  loadRoom(urlRoom).catch(() => {
+  loadRoom(urlRoom, { retries: 4 }).catch((err) => {
     setupPanel.classList.remove("hidden");
     boardPanel.classList.add("hidden");
+    setStatus(
+      setupStatus,
+      err.message || "Could not open board. Tap Open board to retry.",
+      "err"
+    );
   });
 }

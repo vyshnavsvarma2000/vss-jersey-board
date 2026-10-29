@@ -251,6 +251,20 @@ input:focus {
   display: none !important;
 }
 
+.board-panel.loading {
+  pointer-events: none;
+  opacity: 0.72;
+}
+
+.board-panel.loading::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(11, 18, 32, 0.35);
+  pointer-events: none;
+}
+
 .room-banner {
   display: flex;
   flex-wrap: wrap;
