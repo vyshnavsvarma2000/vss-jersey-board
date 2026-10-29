@@ -2,6 +2,7 @@
   "team": "Spoorthi - Vyshnav",
   "code": "VSS",
   "pool": "Pool B",
+  "admins": ["Vyshnav S Varma", "Spoorthi R S"],
   "players": [
     {
       "squad_number": 1,

@@ -153,8 +153,15 @@ function newManageToken() {
   return crypto.randomBytes(16).toString("hex");
 }
 
-function entryAuthorized(entry, displayName, manageToken) {
+function isRosterAdmin(roster, displayName) {
+  if (!roster?.admins?.length || !displayName) return false;
+  const key = nameKey(displayName);
+  return roster.admins.some((name) => nameKey(name) === key);
+}
+
+function entryAuthorized(entry, displayName, manageToken, roster) {
   if (!entry) return false;
+  if (isRosterAdmin(roster, displayName)) return true;
   if (entry.manage_token) {
     return (
       typeof manageToken === "string" &&
@@ -349,10 +356,10 @@ app.post("/api/rooms/:code/entries", (req, res) => {
   });
 });
 
-function findEntryForUser(store, code, id, displayName, manageToken) {
+function findEntryForUser(store, code, id, displayName, manageToken, rosterDoc) {
   const entry = store.entries.find((e) => e.id === id && e.room_code === code);
   if (!entry) return null;
-  if (!entryAuthorized(entry, displayName, manageToken)) return null;
+  if (!entryAuthorized(entry, displayName, manageToken, rosterDoc)) return null;
   return entry;
 }
 
@@ -394,7 +401,7 @@ app.put("/api/rooms/:code/entries/:id", (req, res) => {
   }
 
   const manageToken = String(req.body?.manageToken || "").trim();
-  const entry = findEntryForUser(store, code, id, displayName, manageToken);
+  const entry = findEntryForUser(store, code, id, displayName, manageToken, rosterDoc);
   if (!entry) {
     return res.status(403).json({
       error: "Not allowed to update this entry. Use the same phone/browser where you first submitted.",
@@ -434,8 +441,23 @@ app.delete("/api/rooms/:code/entries/:id", (req, res) => {
   }
 
   const store = readStore();
+  if (!store.rooms[code]) {
+    return res.status(404).json({ error: "Room not found." });
+  }
+
+  const room = store.rooms[code];
+  const rosterDoc = room?.roster_id ? loadRoster(room.roster_id) : null;
+  let actorName = displayName;
+  if (rosterDoc) {
+    const resolved = resolveRosterName(rosterDoc, displayName);
+    if (!resolved) {
+      return res.status(400).json({ error: "Pick your name from the squad list." });
+    }
+    actorName = resolved;
+  }
+
   const entry = store.entries.find((e) => e.id === id && e.room_code === code);
-  if (!entry || !entryAuthorized(entry, displayName, manageToken)) {
+  if (!entry || !entryAuthorized(entry, actorName, manageToken, rosterDoc)) {
     return res.status(403).json({
       error: "Not allowed to delete this entry. Use the same phone/browser where you first submitted.",
     });

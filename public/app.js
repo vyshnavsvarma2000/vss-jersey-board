@@ -153,8 +153,18 @@ function currentIdentityName() {
   return selectedPlayerName() || localStorage.getItem(savedNameKey) || "";
 }
 
-function canManageEntry(entry) {
+function isSquadAdmin(data) {
+  const admins = data?.roster?.admins;
+  if (!admins?.length) return false;
+  const identity = currentIdentityName();
+  if (!identity) return false;
+  const key = nameKeyClient(identity);
+  return admins.some((name) => nameKeyClient(name) === key);
+}
+
+function canManageEntry(entry, data = lastBoardData) {
   if (!activeRoom || !entry?.id) return false;
+  if (isSquadAdmin(data)) return true;
   if (getManageToken(activeRoom, entry.id)) return true;
   if (entry.requiresManageToken) return false;
   const identity = currentIdentityName();
@@ -296,7 +306,7 @@ function renderRosterTable(data) {
       removeBtn.type = "button";
       removeBtn.className = "btn btn-danger";
       removeBtn.textContent = "Delete";
-      removeBtn.addEventListener("click", () => removeEntry(e.id, e.display_name));
+      removeBtn.addEventListener("click", () => removeEntry(e.id));
       actions.appendChild(editBtn);
       actions.appendChild(removeBtn);
       actionsCell.appendChild(actions);
@@ -538,10 +548,9 @@ async function submitEntry(ev) {
   }
 }
 
-async function removeEntry(id, rosterName) {
+async function removeEntry(id) {
   if (!activeRoom) return;
   const displayName =
-    rosterName ||
     selectedPlayerName() ||
     localStorage.getItem(savedNameKey) ||
     prompt("Enter your name to confirm deletion:");
@@ -551,7 +560,12 @@ async function removeEntry(id, rosterName) {
     setStatus(formStatus, "You can only delete your own submission.", "err");
     return;
   }
-  if (!confirm("Delete your submission (jersey number, size, and team name)?")) return;
+  const ownRow =
+    row && nameKeyClient(row.display_name) === nameKeyClient(displayName);
+  const confirmMsg = ownRow
+    ? "Delete your submission (jersey number, size, and team name)?"
+    : `Delete ${row?.display_name || "this"} submission?`;
+  if (!confirm(confirmMsg)) return;
 
   setStatus(formStatus, "Deleting…");
   try {
