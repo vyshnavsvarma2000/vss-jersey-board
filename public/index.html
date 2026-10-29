@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Team Jersey Board</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg-pattern" aria-hidden="true"></div>
+
+    <header class="top-bar">
+      <div class="brand">
+        <span class="brand-mark">#</span>
+        <div>
+          <p class="brand-kicker">Live roster</p>
+          <h1 id="boardTitle">Team Jersey Board</h1>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button type="button" class="btn btn-ghost" id="refreshBtn" title="Refresh now">Refresh</button>
+        <button type="button" class="btn btn-primary" id="whatsappShareBtn">Share on WhatsApp</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel setup-panel" id="setupPanel">
+        <h2>Start or join a board</h2>
+        <p class="muted">
+          Everyone uses the same link or room code. Jersey numbers are first-come, first-served in that room.
+        </p>
+
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" data-tab="join" role="tab" aria-selected="true">Join</button>
+          <button type="button" class="tab" data-tab="create" role="tab" aria-selected="false">Create new</button>
+        </div>
+
+        <div class="tab-panel" id="tab-join">
+          <label class="field">
+            <span>Room code</span>
+            <input type="text" id="joinRoomCode" placeholder="e.g. LIONS26" autocomplete="off" maxlength="32" />
+          </label>
+          <button type="button" class="btn btn-primary btn-block" id="joinRoomBtn">Open board</button>
+        </div>
+
+        <div class="tab-panel hidden" id="tab-create">
+          <label class="field">
+            <span>Board title</span>
+            <input type="text" id="createTitle" placeholder="Saturday league squad" maxlength="120" />
+          </label>
+          <label class="field">
+            <span>Room code (optional)</span>
+            <input type="text" id="createRoomCode" placeholder="Auto-generated if empty" maxlength="32" />
+          </label>
+          <button type="button" class="btn btn-primary btn-block" id="createRoomBtn">Create &amp; open</button>
+        </div>
+
+        <div class="vss-quick-start">
+          <p class="muted small">Your CCL squad (from auction sheet)</p>
+          <button type="button" class="btn btn-primary btn-block" id="openVssBtn">
+            Open VSS board — Spoorthi · Vyshnav (17 players)
+          </button>
+        </div>
+
+        <p class="status-line" id="setupStatus" role="status"></p>
+      </section>
+
+      <section class="panel board-panel hidden" id="boardPanel">
+        <div class="room-banner">
+          <div>
+            <p class="muted small">Room</p>
+            <p class="room-code" id="activeRoomCode">—</p>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="copyLinkBtn">Copy link</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="exportExcelBtn">Export Excel</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="leaveRoomBtn">Switch room</button>
+        </div>
+
+        <div class="subpanel progress-panel hidden" id="progressPanel">
+          <div class="section-head">
+            <h2>Squad responses</h2>
+            <p class="progress-badge" id="progressBadge">0 / 0</p>
+          </div>
+          <p class="muted small">Everyone on the roster should submit jersey number, size, and team name preference.</p>
+          <div class="pending-block hidden" id="pendingBlock">
+            <p class="pending-label">Still waiting on</p>
+            <ul class="pending-list" id="pendingList"></ul>
+          </div>
+        </div>
+
+        <div class="grid-two">
+          <div class="subpanel">
+            <h2>Pick your jersey</h2>
+            <p class="muted small">You can update or delete your submission anytime.</p>
+            <form id="entryForm" class="entry-form">
+              <label class="field" id="playerSelectField">
+                <span>Select your name</span>
+                <select id="playerSelect" required>
+                  <option value="">Choose from squad list…</option>
+                </select>
+              </label>
+              <label class="field hidden" id="displayNameField">
+                <span>Your name</span>
+                <input type="text" id="displayName" maxlength="80" placeholder="Full name or nickname" />
+              </label>
+              <label class="field">
+                <span>Jersey number</span>
+                <input type="number" id="jerseyNumber" required min="0" step="1" placeholder="Your jersey number" />
+              </label>
+              <label class="field">
+                <span>Jersey size</span>
+                <select id="jerseySize" required>
+                  <option value="">Select size…</option>
+                  <option value="XS">XS</option>
+                  <option value="S">S</option>
+                  <option value="M">M</option>
+                  <option value="L">L</option>
+                  <option value="XL">XL</option>
+                  <option value="XXL">XXL</option>
+                  <option value="3XL">3XL</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Team name you prefer</span>
+                <input
+                  type="text"
+                  id="teamPreference"
+                  required
+                  maxlength="120"
+                  placeholder="e.g. Blue Strikers"
+                  list="teamSuggestionsList"
+                />
+                <datalist id="teamSuggestionsList"></datalist>
+              </label>
+              <label class="field">
+                <span>Note <span class="muted">(optional)</span></span>
+                <input type="text" id="note" maxlength="200" placeholder="Other notes (optional)" />
+              </label>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-block" id="submitEntryBtn">Save my pick</button>
+                <button type="button" class="btn btn-ghost btn-block hidden" id="cancelEditBtn">Cancel edit</button>
+              </div>
+            </form>
+            <p class="status-line" id="formStatus" role="status"></p>
+          </div>
+
+          <div class="subpanel">
+            <h2>Team name ideas</h2>
+            <p class="muted small">Ranked by how many people suggested the same name.</p>
+            <ul class="suggestion-list" id="suggestionList"></ul>
+          </div>
+        </div>
+
+        <div class="subpanel">
+          <div class="section-head">
+            <h2>Roster</h2>
+            <p class="muted small" id="rosterSummary">0 players</p>
+          </div>
+          <div class="table-wrap">
+            <table class="roster-table">
+              <thead>
+                <tr>
+                  <th>Jersey number</th>
+                  <th>Name</th>
+                  <th>Size</th>
+                  <th>Team preference</th>
+                  <th>Note</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="rosterBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer muted small">
+      Share the board link in your WhatsApp group so everyone picks numbers on the same live board.
+    </footer>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

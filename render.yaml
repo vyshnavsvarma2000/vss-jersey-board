@@ -1,0 +1,14 @@
+# Standalone repo: app is at repository root (no rootDir).
+services:
+  - type: web
+    name: vss-jersey-board
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PUBLIC_BASE_URL
+        sync: false

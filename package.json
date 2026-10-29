@@ -1,0 +1,19 @@
+{
+  "name": "team-jersey-board",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Collaborative jersey number and team name preference board",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "import:vss": "node scripts/import-vss-roster.js",
+    "test:crud": "node scripts/crud-smoke.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2"
+  }
+}

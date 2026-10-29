@@ -1,0 +1,7 @@
+# Azure Developer CLI (azd) — deploy: azd init (if needed), az login, azd up
+name: vss-jersey-board
+services:
+  api:
+    project: .
+    host: appservice
+    language: js

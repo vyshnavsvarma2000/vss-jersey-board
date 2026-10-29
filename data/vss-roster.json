@@ -1,0 +1,109 @@
+{
+  "team": "Spoorthi - Vyshnav",
+  "code": "VSS",
+  "pool": "Pool B",
+  "players": [
+    {
+      "squad_number": 1,
+      "name": "Vyshnav S Varma",
+      "gender": "Male",
+      "role": "All-rounder"
+    },
+    {
+      "squad_number": 2,
+      "name": "Spoorthi R S",
+      "gender": "Female",
+      "role": "Batter"
+    },
+    {
+      "squad_number": 3,
+      "name": "Anoop C Nair",
+      "gender": "Male",
+      "role": ""
+    },
+    {
+      "squad_number": 4,
+      "name": "Prem Sankar R",
+      "gender": "Male",
+      "role": "All-rounder"
+    },
+    {
+      "squad_number": 5,
+      "name": "Pradeep G",
+      "gender": "Male",
+      "role": "All-rounder"
+    },
+    {
+      "squad_number": 6,
+      "name": "Jasil P",
+      "gender": "Male",
+      "role": "Bowler"
+    },
+    {
+      "squad_number": 7,
+      "name": "Sreenath Ks",
+      "gender": "Male",
+      "role": "Batter"
+    },
+    {
+      "squad_number": 8,
+      "name": "Revati Krishnan",
+      "gender": "Female",
+      "role": "All-rounder"
+    },
+    {
+      "squad_number": 9,
+      "name": "Ganesh",
+      "gender": "",
+      "role": "Bowler"
+    },
+    {
+      "squad_number": 10,
+      "name": "Deepu D B",
+      "gender": "Male",
+      "role": "Bowler"
+    },
+    {
+      "squad_number": 11,
+      "name": "Karthik M S",
+      "gender": "Male",
+      "role": "All-rounder"
+    },
+    {
+      "squad_number": 12,
+      "name": "Roshith Krishna P",
+      "gender": "Male",
+      "role": "All-rounder"
+    },
+    {
+      "squad_number": 13,
+      "name": "Arunima Kavilvadakke Veettil",
+      "gender": "Female",
+      "role": ""
+    },
+    {
+      "squad_number": 14,
+      "name": "Jone Abraham",
+      "gender": "Male",
+      "role": "All-rounder"
+    },
+    {
+      "squad_number": 15,
+      "name": "Krishnan",
+      "gender": "Male",
+      "role": "Batter"
+    },
+    {
+      "squad_number": 16,
+      "name": "Venkitesh Dayan",
+      "gender": "Male",
+      "role": "All-rounder"
+    },
+    {
+      "squad_number": 17,
+      "name": "Aarathy Variar",
+      "gender": "Female",
+      "role": ""
+    }
+  ]
+}
