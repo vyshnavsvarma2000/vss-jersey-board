@@ -13,3 +13,5 @@ services:
         value: production
       - key: PUBLIC_BASE_URL
         sync: false
+      - key: CAPTAIN_SECRET
+        sync: false

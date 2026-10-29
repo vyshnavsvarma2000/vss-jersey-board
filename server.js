@@ -452,6 +452,29 @@ app.delete("/api/rooms/:code/entries/:id", (req, res) => {
   res.json(boardPayload(store, code));
 });
 
+app.delete("/api/rooms/:code/captain/entries/:id", (req, res) => {
+  const captainSecret = process.env.CAPTAIN_SECRET;
+  if (!captainSecret || req.get("x-captain-secret") !== captainSecret) {
+    return res.status(404).json({ error: "Not found" });
+  }
+
+  const code = normalizeRoomCode(req.params.code);
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: "Invalid entry id." });
+  }
+
+  const store = readStore();
+  const idx = store.entries.findIndex((e) => e.id === id && e.room_code === code);
+  if (idx === -1) {
+    return res.status(404).json({ error: "Entry not found." });
+  }
+
+  store.entries.splice(idx, 1);
+  writeStore(store);
+  res.json(boardPayload(store, code));
+});
+
 ensurePresetRooms();
 
 app.listen(PORT, HOST, () => {
