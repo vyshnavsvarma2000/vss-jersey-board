@@ -491,9 +491,118 @@ app.delete("/api/rooms/:code/entries/:id", (req, res) => {
   res.json(boardPayload(store, code));
 });
 
-app.delete("/api/rooms/:code/captain/entries/:id", (req, res) => {
+function captainAuthorized(req) {
   const captainSecret = process.env.CAPTAIN_SECRET;
-  if (!captainSecret || req.get("x-captain-secret") !== captainSecret) {
+  return Boolean(captainSecret && req.get("x-captain-secret") === captainSecret);
+}
+
+function parseEntryPayload(body, rosterDoc, { sleeveRequired = true } = {}) {
+  let displayName = normalizeName(body?.displayName);
+  const jerseyNumber = parseInt(body?.jerseyNumber, 10);
+  const teamPreference = normalizeTeamPref(body?.teamPreference);
+  const jerseySize = normalizeJerseySize(body?.jerseySize);
+  const jerseySleeve = normalizeJerseySleeve(body?.jerseySleeve);
+  const note = normalizeNote(body?.note);
+
+  if (rosterDoc) {
+    const resolved = resolveRosterName(rosterDoc, displayName);
+    if (!resolved) {
+      return { error: `Unknown squad name: ${displayName || "(empty)"}` };
+    }
+    displayName = resolved;
+  }
+
+  if (!displayName) return { error: "Name is required." };
+  if (!Number.isInteger(jerseyNumber) || jerseyNumber < 0 || jerseyNumber > 9999) {
+    return { error: `${displayName}: invalid jersey number.` };
+  }
+  if (!jerseySize) return { error: `${displayName}: invalid jersey size.` };
+  if (sleeveRequired && !jerseySleeve) {
+    return { error: `${displayName}: select half sleeve or full sleeve.` };
+  }
+  if (!teamPreference) return { error: `${displayName}: team preference is required.` };
+
+  const entry = {
+    display_name: displayName,
+    jersey_number: jerseyNumber,
+    jersey_size: jerseySize,
+    team_preference: teamPreference,
+    note,
+  };
+  if (jerseySleeve) entry.jersey_sleeve = jerseySleeve;
+  return { entry };
+}
+
+app.post("/api/rooms/:code/captain/import", (req, res) => {
+  if (!captainAuthorized(req)) {
+    return res.status(404).json({ error: "Not found" });
+  }
+
+  const code = normalizeRoomCode(req.params.code);
+  const store = readStore();
+  const room = store.rooms[code];
+  if (!room) {
+    return res.status(404).json({ error: "Room not found." });
+  }
+
+  const rosterDoc = room?.roster_id ? loadRoster(room.roster_id) : null;
+  const rows = req.body?.entries;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return res.status(400).json({ error: "Body must include a non-empty entries array." });
+  }
+
+  const replace = Boolean(req.body?.replace);
+  if (replace) {
+    store.entries = store.entries.filter((e) => e.room_code !== code);
+  }
+
+  const roomEntries = listEntries(store, code);
+  const usedNumbers = new Set(roomEntries.map((e) => e.jersey_number));
+  const usedNames = new Set(roomEntries.map((e) => nameKey(e.display_name)));
+  const imported = [];
+
+  for (const row of rows) {
+    const parsed = parseEntryPayload(row, rosterDoc, { sleeveRequired: false });
+    if (parsed.error) {
+      return res.status(400).json({ error: parsed.error, importedCount: imported.length });
+    }
+    const { entry } = parsed;
+    const nameK = nameKey(entry.display_name);
+    if (usedNames.has(nameK)) {
+      return res.status(409).json({
+        error: `${entry.display_name} already has an entry. Use replace:true or remove duplicates.`,
+        importedCount: imported.length,
+      });
+    }
+    if (usedNumbers.has(entry.jersey_number)) {
+      return res.status(409).json({
+        error: `Jersey #${entry.jersey_number} is already taken.`,
+        importedCount: imported.length,
+      });
+    }
+
+    const entryId = nextEntryId(store);
+    store.entries.push({
+      id: entryId,
+      room_code: code,
+      ...entry,
+      created_at: new Date().toISOString(),
+    });
+    usedNames.add(nameK);
+    usedNumbers.add(entry.jersey_number);
+    imported.push(entryId);
+  }
+
+  writeStore(store);
+  res.status(201).json({
+    ...boardPayload(store, code),
+    importedIds: imported,
+    importedCount: imported.length,
+  });
+});
+
+app.delete("/api/rooms/:code/captain/entries/:id", (req, res) => {
+  if (!captainAuthorized(req)) {
     return res.status(404).json({ error: "Not found" });
   }
 
