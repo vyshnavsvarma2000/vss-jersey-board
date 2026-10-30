@@ -49,10 +49,17 @@ function normalizeNote(note) {
 }
 
 const JERSEY_SIZES = new Set(["XS", "S", "M", "L", "XL", "XXL", "3XL"]);
+const JERSEY_SLEEVES = new Set(["Half sleeve", "Full sleeve"]);
 
 function normalizeJerseySize(size) {
   const s = String(size || "").trim();
   if (!s || !JERSEY_SIZES.has(s)) return null;
+  return s;
+}
+
+function normalizeJerseySleeve(sleeve) {
+  const s = String(sleeve || "").trim();
+  if (!s || !JERSEY_SLEEVES.has(s)) return null;
   return s;
 }
 
@@ -299,6 +306,7 @@ app.post("/api/rooms/:code/entries", (req, res) => {
   const jerseyNumber = parseInt(req.body?.jerseyNumber, 10);
   const teamPreference = normalizeTeamPref(req.body?.teamPreference);
   const jerseySize = normalizeJerseySize(req.body?.jerseySize);
+  const jerseySleeve = normalizeJerseySleeve(req.body?.jerseySleeve);
   const note = normalizeNote(req.body?.note);
 
   const room = store.rooms[code];
@@ -322,6 +330,9 @@ app.post("/api/rooms/:code/entries", (req, res) => {
   if (!jerseySize) {
     return res.status(400).json({ error: "Select a valid jersey size (XS–3XL)." });
   }
+  if (!jerseySleeve) {
+    return res.status(400).json({ error: "Select half sleeve or full sleeve." });
+  }
   if (!teamPreference) {
     return res.status(400).json({ error: "Team name preference is required." });
   }
@@ -342,6 +353,7 @@ app.post("/api/rooms/:code/entries", (req, res) => {
     display_name: displayName,
     jersey_number: jerseyNumber,
     jersey_size: jerseySize,
+    jersey_sleeve: jerseySleeve,
     team_preference: teamPreference,
     note,
     manage_token: manageToken,
@@ -375,6 +387,7 @@ app.put("/api/rooms/:code/entries/:id", (req, res) => {
   const jerseyNumber = parseInt(req.body?.jerseyNumber, 10);
   const teamPreference = normalizeTeamPref(req.body?.teamPreference);
   const jerseySize = normalizeJerseySize(req.body?.jerseySize);
+  const jerseySleeve = normalizeJerseySleeve(req.body?.jerseySleeve);
   const note = normalizeNote(req.body?.note);
 
   const room = store.rooms[code];
@@ -396,6 +409,9 @@ app.put("/api/rooms/:code/entries/:id", (req, res) => {
   if (!jerseySize) {
     return res.status(400).json({ error: "Select a valid jersey size (XS–3XL)." });
   }
+  if (!jerseySleeve) {
+    return res.status(400).json({ error: "Select half sleeve or full sleeve." });
+  }
   if (!teamPreference) {
     return res.status(400).json({ error: "Team name preference is required." });
   }
@@ -415,6 +431,7 @@ app.put("/api/rooms/:code/entries/:id", (req, res) => {
 
   entry.jersey_number = jerseyNumber;
   entry.jersey_size = jerseySize;
+  entry.jersey_sleeve = jerseySleeve;
   entry.team_preference = teamPreference;
   entry.note = note;
   entry.updated_at = new Date().toISOString();

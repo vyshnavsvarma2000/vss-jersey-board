@@ -35,6 +35,7 @@ async function main() {
     displayName: player,
     jerseyNumber: 42,
     jerseySize: "L",
+    jerseySleeve: "Half sleeve",
     teamPreference: "Smoke Test XI",
     note: "create",
   });
@@ -48,6 +49,7 @@ async function main() {
     displayName: player,
     jerseyNumber: 43,
     jerseySize: "XL",
+    jerseySleeve: "Full sleeve",
     teamPreference: "Smoke Test Updated",
     note: "update",
     manageToken,

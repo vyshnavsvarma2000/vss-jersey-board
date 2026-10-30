@@ -23,6 +23,7 @@ const playerSelectField = $("#playerSelectField");
 const displayNameField = $("#displayNameField");
 const jerseyNumberInput = $("#jerseyNumber");
 const jerseySizeInput = $("#jerseySize");
+const jerseySleeveInput = $("#jerseySleeve");
 
 const progressPanel = $("#progressPanel");
 const progressBadge = $("#progressBadge");
@@ -235,6 +236,7 @@ function loadEntryIntoForm(entry) {
   }
   jerseyNumberInput.value = entry.jersey_number;
   jerseySizeInput.value = entry.jersey_size || "";
+  jerseySleeveInput.value = entry.jersey_sleeve || "";
   teamPreferenceInput.value = entry.team_preference;
   noteInput.value = entry.note || "";
   setEditMode(entry);
@@ -254,6 +256,7 @@ function loadEntryForSelectedName(entries) {
   }
   jerseyNumberInput.value = "";
   jerseySizeInput.value = "";
+  jerseySleeveInput.value = "";
   teamPreferenceInput.value = "";
   noteInput.value = "";
   setEditMode(null);
@@ -285,6 +288,7 @@ function renderRosterTable(data) {
       <td><strong>${e.jersey_number}</strong></td>
       <td>${escapeHtml(e.display_name)}</td>
       <td>${escapeHtml(e.jersey_size || "—")}</td>
+      <td>${escapeHtml(e.jersey_sleeve || "—")}</td>
       <td>${escapeHtml(e.team_preference)}</td>
       <td>${escapeHtml(e.note || "—")}</td>
       <td></td>
@@ -299,7 +303,15 @@ function renderRosterTable(data) {
       editBtn.textContent = "Edit";
       editBtn.addEventListener("click", () => {
         loadEntryIntoForm(e);
-        setStatus(formStatus, "Editing your submission — change fields and click Update.", "ok");
+        const editingOwn =
+          nameKeyClient(e.display_name) === nameKeyClient(currentIdentityName());
+        setStatus(
+          formStatus,
+          editingOwn
+            ? "Editing your submission — change fields and click Update."
+            : `Editing ${e.display_name}'s submission (admin).`,
+          "ok"
+        );
         entryFormEl.scrollIntoView({ behavior: "smooth", block: "start" });
       });
       const removeBtn = document.createElement("button");
@@ -316,7 +328,7 @@ function renderRosterTable(data) {
 
   if (data.entries.length === 0) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="6" class="muted">No submissions yet.</td>`;
+    tr.innerHTML = `<td colspan="7" class="muted">No submissions yet.</td>`;
     rosterBody.appendChild(tr);
   }
 }
@@ -491,11 +503,16 @@ async function submitEntry(ev) {
   const displayName = selectedPlayerName();
   const jerseyNumber = jerseyNumberInput.value;
   const jerseySize = jerseySizeInput.value.trim();
+  const jerseySleeve = jerseySleeveInput.value.trim();
   const teamPreference = $("#teamPreference").value.trim();
   const note = $("#note").value.trim();
 
   if (!jerseySize) {
     setStatus(formStatus, "Select your jersey size.", "err");
+    return;
+  }
+  if (!jerseySleeve) {
+    setStatus(formStatus, "Select half sleeve or full sleeve.", "err");
     return;
   }
 
@@ -518,7 +535,7 @@ async function submitEntry(ev) {
   const isUpdate = Boolean(editingEntryId);
   setStatus(formStatus, isUpdate ? "Updating…" : "Saving…");
   try {
-    const payload = { displayName, jerseyNumber, jerseySize, teamPreference, note };
+    const payload = { displayName, jerseyNumber, jerseySize, jerseySleeve, teamPreference, note };
     if (isUpdate) {
       const token = getManageToken(activeRoom, editingEntryId);
       if (token) payload.manageToken = token;
